@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ice Age RPS - Game</title>
+    <link rel="stylesheet" href="css/style.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container game-container">
+        <header class="game-header">
+            <div>
+                <h2><i class="fas fa-gamepad"></i> Ice Age RPS</h2>
+                <div id="gameInfo">Loading...</div>
+            </div>
+            <div>
+                <button class="btn btn-secondary" id="leaveGame">
+                    <i class="fas fa-sign-out-alt"></i> Leave
+                </button>
+            </div>
+        </header>
+        
+        <div class="game-arena">
+            <div class="player-card">
+                <div class="player-name" id="player1Name">You</div>
+                <div class="player-score" id="player1Score">0</div>
+                <div class="hand-display" id="player1Hand">✊</div>
+                <div id="player1Status">Ready</div>
+            </div>
+            
+            <div class="game-center">
+                <div class="round-info">
+                    Round <span id="roundNumber">1</span>
+                </div>
+                <div class="timer" id="timer">
+                    <i class="fas fa-clock"></i> 10 seconds
+                </div>
+                <div class="result-banner" id="resultBanner">
+                    Choose your move!
+                </div>
+                
+                <div class="controls">
+                    <button class="move-btn" data-move="rock" id="rockBtn">
+                        ✊
+                    </button>
+                    <button class="move-btn" data-move="paper" id="paperBtn">
+                        ✋
+                    </button>
+                    <button class="move-btn" data-move="scissors" id="scissorsBtn">
+                        ✌️
+                    </button>
+                </div>
+            </div>
+            
+            <div class="player-card">
+                <div class="player-name" id="player2Name">Opponent</div>
+                <div class="player-score" id="player2Score">0</div>
+                <div class="hand-display" id="player2Hand">✊</div>
+                <div id="player2Status">Waiting...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load appropriate game script -->
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode') || 'cpu';
+        
+        const script = document.createElement('script');
+        script.src = mode === 'cpu' ? 'js/game-cpu.min.js' : 'js/game-multiplayer.min.js';
+        document.body.appendChild(script);
+    </script>
+</body>
+</html>
