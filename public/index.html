@@ -1,64 +1,83 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ice Age RPS</title>
-    <link rel="stylesheet" href="css/style.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta charset="utf-8" />
+  <title>Ice Age RPS - Lobby</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body class="theme-0">
-    <div class="container">
-        <div class="lobby">
-            <h1><i class="fas fa-snowflake"></i> ICE AGE RPS <i class="fas fa-fire"></i></h1>
-            
-            <div class="input-group">
-                <label for="name"><i class="fas fa-user"></i> Your Name</label>
-                <input type="text" id="name" placeholder="Enter your name" maxlength="20">
-            </div>
-            
-            <div class="skin-selector">
-                <h3><i class="fas fa-palette"></i> Choose Theme</h3>
-                <div class="skin-options">
-                    <div class="skin-option selected" data-skin="0" title="Frost"></div>
-                    <div class="skin-option" data-skin="1" title="Inferno"></div>
-                    <div class="skin-option" data-skin="2" title="Nature"></div>
-                    <div class="skin-option" data-skin="3" title="Darkness"></div>
-                </div>
-            </div>
-            
-            <div class="buttons">
-                <button class="btn btn-primary" id="playCpu">
-                    <i class="fas fa-robot"></i> Play vs Computer
-                </button>
-                
-                <button class="btn btn-success" id="createRoom">
-                    <i class="fas fa-plus-circle"></i> Create Room
-                </button>
-                
-                <div class="room-join">
-                    <label>Join Room</label>
-                    <div class="room-input">
-                        <input type="text" id="roomCode" placeholder="4-digit code" maxlength="4">
-                        <button class="btn btn-secondary" id="joinRoom">
-                            <i class="fas fa-sign-in-alt"></i> Join
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="instructions">
-                <h4><i class="fas fa-info-circle"></i> How to Play:</h4>
-                <ul>
-                    <li>Choose your move: Rock, Paper, or Scissors</li>
-                    <li>First to 5 wins the match</li>
-                    <li>Rock beats Scissors, Scissors beats Paper, Paper beats Rock</li>
-                    <li>You have 10 seconds to choose each round</li>
-                </ul>
-            </div>
-        </div>
+<body class="skin0">
+  <div class="lobby-container">
+    <div class="title-section">
+      <h1><i class="fas fa-snowflake"></i> ICE AGE RPS <i class="fas fa-fire"></i></h1>
+      <p class="subtitle">Rock, Paper, Scissors with style!</p>
     </div>
-    
-    <script src="js/lobby.min.js"></script>
+
+    <div class="form-section">
+      <div class="input-group">
+        <label for="name"><i class="fas fa-user"></i> Your Name</label>
+        <input type="text" id="name" placeholder="Enter your username" maxlength="15" />
+      </div>
+
+      <div class="skin-section">
+        <h3><i class="fas fa-palette"></i> Choose Your Theme</h3>
+        <div class="skin-grid">
+          <div class="skin-card" data-skin="0">
+            <div class="skin-preview ice-theme"></div>
+            <div class="skin-name">Frost</div>
+          </div>
+          <div class="skin-card" data-skin="1">
+            <div class="skin-preview fire-theme"></div>
+            <div class="skin-name">Inferno</div>
+          </div>
+          <div class="skin-card" data-skin="2">
+            <div class="skin-preview nature-theme"></div>
+            <div class="skin-name">Nature</div>
+          </div>
+          <div class="skin-card" data-skin="3">
+            <div class="skin-preview dark-theme"></div>
+            <div class="skin-name">Darkness</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-section">
+        <button id="cpuBtn" class="mode-btn computer">
+            <i class="fas fa-robot"></i> Quick Play vs Computer
+            <small class="mode-subtitle">Instant single-player game</small>
+        </button>
+
+
+        <div class="multiplayer-section">
+          <h3><i class="fas fa-users"></i> Play with Friends</h3>
+          <div class="room-controls">
+            <button id="createBtn" class="action-btn create">
+              <i class="fas fa-plus-circle"></i> Create New Room
+            </button>
+            
+            <div class="join-section">
+              <input type="text" id="room" placeholder="Enter Room ID" maxlength="4" pattern="\d*" />
+              <button id="joinBtn" class="action-btn join">
+                <i class="fas fa-sign-in-alt"></i> Join Room
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="instructions">
+        <h4><i class="fas fa-info-circle"></i> How to Play:</h4>
+        <ul>
+          <li>Choose your theme for visual customization</li>
+          <li>Play against the computer or with friends</li>
+          <li>First to 5 wins the match</li>
+          <li>Chat with your opponent during the game</li>
+          <li>Winner gets confetti, loser gets... consequences!</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="lobby.js"></script>
 </body>
 </html>

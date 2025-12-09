@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RPS Online Lobby</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="lobby-bg">
+
+<div class="lobby-container">
+    <h1>ICE AGE RPS ❄️🔥</h1>
+
+    <input id="username" placeholder="Enter username">
+
+    <h3>Select Your Skin</h3>
+    <div class="skin-row">
+        <div class="skin-option" data-skin="ice"></div>
+        <div class="skin-option" data-skin="human"></div>
+        <div class="skin-option" data-skin="zombie"></div>
+        <div class="skin-option" data-skin="bear"></div>
+    </div>
+
+    <button id="createRoomBtn">Create Room</button>
+
+    <input id="roomCode" placeholder="Room Code">
+    <button id="joinRoomBtn">Join Room</button>
+
+    <button id="playBot">Play With Computer</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="lobby.js"></script>
+
+</body>
+</html>
