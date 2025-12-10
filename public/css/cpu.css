@@ -1,0 +1,75 @@
+/* CPU MODE SPECIFIC STYLES */
+
+/* Layout for CPU mode */
+.cpu-container .game-main {
+    grid-template-columns: 350px 1fr 350px;
+}
+
+/* Hide chat panel in CPU mode */
+.cpu-container .chat-panel {
+    display: none !important;
+}
+
+/* Computer panel styling */
+.cpu-container .right-panel .player-name::after {
+    content: " 🤖";
+    margin-left: 10px;
+}
+
+/* CPU thinking animation */
+@keyframes thinking {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.cpu-thinking {
+    animation: thinking 1s infinite;
+}
+
+/* Score emphasis */
+.cpu-container .player-score {
+    font-size: 4rem;
+    margin-top: 20px;
+}
+
+/* Arena adjustments for CPU mode */
+.cpu-arena {
+    margin: 0 20px;
+}
+
+/* Auto-play indicator */
+.auto-play-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.1);
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: var(--secondary);
+}
+
+/* Responsive for CPU mode */
+@media (max-width: 1200px) {
+    .cpu-container .game-main {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+    }
+    
+    .cpu-container .arena-center {
+        grid-column: 1 / -1;
+        order: -1;
+        margin-bottom: 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .cpu-container .game-main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+    }
+    
+    .cpu-container .player-panel {
+        min-height: 250px;
+    }
+}

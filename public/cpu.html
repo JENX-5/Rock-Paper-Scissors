@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Ice Age RPS - CPU Mode</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cpu.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="game-container cpu-container">
+        <!-- Game Header -->
+        <header class="game-header">
+            <div class="header-left">
+                <h2><i class="fas fa-gamepad"></i> Ice Age RPS - Training Mode</h2>
+                <div class="room-info">
+                    <i class="fas fa-robot"></i>
+                    <span id="roomLabel">Playing vs Computer</span>
+                </div>
+            </div>
+            <div class="header-controls">
+                <button id="leave" class="control-btn leave">
+                    <i class="fas fa-sign-out-alt"></i> Back to Lobby
+                </button>
+                <button id="resetScores" class="control-btn reset">
+                    <i class="fas fa-redo"></i> Reset Game
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Game Area -->
+        <main class="game-main">
+            <!-- Left Player (You) -->
+            <section class="player-panel left-panel">
+                <div class="player-info">
+                    <div class="player-name" id="p1Name">Player</div>
+                    <div class="player-status" id="p1Status">You</div>
+                </div>
+                <div class="hand-display">
+                    <img id="p1Img" class="hand-img" src="" alt="Your Hand">
+                </div>
+                <div class="player-score" id="p1Score">0</div>
+            </section>
+
+            <!-- Arena Center -->
+            <section class="arena-center cpu-arena">
+                <div class="vs-badge">VS</div>
+                
+                <div class="round-info">
+                    <div class="round-text">Round</div>
+                    <div class="round-number" id="roundNumber">1</div>
+                </div>
+
+                <div class="result-banner" id="resultBanner">
+                    Choose your move!
+                </div>
+
+                <div class="timer" id="timer">
+                    <i class="fas fa-clock"></i> <span id="timerText">10 seconds</span>
+                </div>
+
+                <div class="controls-section">
+                    <button class="move-btn rock" data-move="rock" disabled>
+                        <i class="fas fa-hand-rock move-icon"></i>
+                        <span>ROCK</span>
+                    </button>
+                    <button class="move-btn paper" data-move="paper" disabled>
+                        <i class="fas fa-hand-paper move-icon"></i>
+                        <span>PAPER</span>
+                    </button>
+                    <button class="move-btn scissor" data-move="scissor" disabled>
+                        <i class="fas fa-hand-scissors move-icon"></i>
+                        <span>SCISSORS</span>
+                    </button>
+                </div>
+
+                <!-- Effects -->
+                <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
+                <div id="fireEffect" class="fire-effect"></div>
+            </section>
+
+            <!-- Right Player (Computer) -->
+            <section class="player-panel right-panel">
+                <div class="player-info">
+                    <div class="player-name" id="p2Name">Computer 🤖</div>
+                    <div class="player-status" id="p2Status">AI Opponent</div>
+                </div>
+                <div class="hand-display">
+                    <img id="p2Img" class="hand-img flipped" src="" alt="Computer Hand">
+                </div>
+                <div class="player-score" id="p2Score">0</div>
+            </section>
+        </main>
+    </div>
+
+    <script src="js/cpu-game.js"></script>
+</body>
+</html>

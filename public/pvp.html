@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Ice Age RPS - PvP Mode</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/pvp.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="game-container pvp-container">
+        <!-- Game Header -->
+        <header class="game-header">
+            <div class="header-left">
+                <h2><i class="fas fa-gamepad"></i> Ice Age RPS - PvP</h2>
+                <div class="room-info">
+                    <i class="fas fa-users"></i>
+                    <span id="roomLabel">Room: Loading...</span>
+                </div>
+            </div>
+            <div class="header-controls">
+                <button id="leave" class="control-btn leave">
+                    <i class="fas fa-sign-out-alt"></i> Leave Game
+                </button>
+                <button id="resetScores" class="control-btn reset">
+                    <i class="fas fa-redo"></i> Reset Scores
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Game Area -->
+        <main class="game-main">
+            <!-- Left Player -->
+            <section class="player-panel left-panel">
+                <div class="player-info">
+                    <div class="player-name" id="p1Name">Player 1</div>
+                    <div class="player-status" id="p1Status">Waiting...</div>
+                </div>
+                <div class="hand-display">
+                    <img id="p1Img" class="hand-img" src="" alt="Player 1 Hand">
+                </div>
+                <div class="player-score" id="p1Score">0</div>
+                <div class="player-indicator" id="p1Indicator"></div>
+            </section>
+
+            <!-- Arena Center -->
+            <section class="arena-center">
+                <div class="vs-badge">VS</div>
+                
+                <div class="round-info">
+                    <div class="round-text">Round</div>
+                    <div class="round-number" id="roundNumber">1</div>
+                </div>
+
+                <div class="result-banner" id="resultBanner">
+                    Waiting for players...
+                </div>
+
+                <div class="timer" id="timer">
+                    <i class="fas fa-clock"></i> <span id="timerText">Waiting...</span>
+                </div>
+
+                <div class="controls-section">
+                    <button class="move-btn rock" data-move="rock" disabled>
+                        <i class="fas fa-hand-rock move-icon"></i>
+                        <span>ROCK</span>
+                    </button>
+                    <button class="move-btn paper" data-move="paper" disabled>
+                        <i class="fas fa-hand-paper move-icon"></i>
+                        <span>PAPER</span>
+                    </button>
+                    <button class="move-btn scissor" data-move="scissor" disabled>
+                        <i class="fas fa-hand-scissors move-icon"></i>
+                        <span>SCISSORS</span>
+                    </button>
+                </div>
+
+                <!-- Effects -->
+                <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
+                <div id="fireEffect" class="fire-effect"></div>
+            </section>
+
+            <!-- Right Player -->
+            <section class="player-panel right-panel">
+                <div class="player-info">
+                    <div class="player-name" id="p2Name">Player 2</div>
+                    <div class="player-status" id="p2Status">Waiting...</div>
+                </div>
+                <div class="hand-display">
+                    <img id="p2Img" class="hand-img flipped" src="" alt="Player 2 Hand">
+                </div>
+                <div class="player-score" id="p2Score">0</div>
+                <div class="player-indicator" id="p2Indicator"></div>
+            </section>
+
+            <!-- Chat Panel -->
+            <aside class="chat-panel">
+                <div class="chat-header">
+                    <i class="fas fa-comments"></i> Game Chat
+                    <button id="chatToggle" class="chat-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="chat-section">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message system">
+                            <div class="message-sender">System</div>
+                            <div class="message-content">Welcome to the game! First to 5 wins.</div>
+                        </div>
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="chatInput" placeholder="Type your message..." maxlength="100">
+                        <button id="chatSend">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/pvp-game.js"></script>
+</body>
+</html>

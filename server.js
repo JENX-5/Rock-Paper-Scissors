@@ -145,7 +145,8 @@ io.on('connection', (socket) => {
         // Send join confirmation
         socket.emit('joined', {
             role: availableRole,
-            room: roomObj.id
+            room: roomObj.id,
+            opponent: availableRole === 'p1' ? roomObj.players.p2 : roomObj.players.p1
         });
         
         console.log('Player joined:', player);
@@ -155,8 +156,8 @@ io.on('connection', (socket) => {
         
         // Send welcome message
         io.to(roomObj.id).emit('chat', {
-            name: 'System',
-            msg: `${player.name} joined as ${availableRole}`
+            sender: 'System',
+            message: `${player.name} joined the game as ${availableRole === 'p1' ? 'Player 1' : 'Player 2'}`
         });
     });
     
@@ -179,6 +180,12 @@ io.on('connection', (socket) => {
         roomObj.choices[role] = choice;
         console.log('Choice recorded:', role, choice);
         
+        // Notify other player
+        io.to(roomObj.id).emit('choiceMade', {
+            player: role,
+            choice: choice
+        });
+        
         // Check if both players have chosen
         if (roomObj.choices.p1 && roomObj.choices.p2) {
             const result = evaluateRound(roomObj);
@@ -195,14 +202,30 @@ io.on('connection', (socket) => {
                 }
                 
                 broadcastRoomState(roomObj);
+                
+                // Check for match winner
+                if (result.scores.p1 >= 5 || result.scores.p2 >= 5) {
+                    const winner = result.scores.p1 >= 5 ? 'p1' : 'p2';
+                    const winnerName = roomObj.players[winner].name;
+                    
+                    io.to(roomObj.id).emit('matchWinner', {
+                        winner: winner,
+                        winnerName: winnerName,
+                        scores: result.scores
+                    });
+                }
             }
         }
     });
     
-    socket.on('chat', ({ room, name, msg }) => {
+    socket.on('chat', ({ room, sender, message }) => {
         const roomObj = getRoom(room);
         if (roomObj) {
-            io.to(roomObj.id).emit('chat', { name, msg });
+            io.to(roomObj.id).emit('chat', { 
+                sender: sender, 
+                message: message,
+                timestamp: new Date().toLocaleTimeString()
+            });
         }
     });
     
@@ -226,8 +249,8 @@ io.on('connection', (socket) => {
             broadcastRoomState(roomObj);
             
             io.to(roomObj.id).emit('chat', {
-                name: 'System',
-                msg: 'Scores have been reset'
+                sender: 'System',
+                message: 'Scores have been reset'
             });
         }
     });
@@ -241,8 +264,8 @@ io.on('connection', (socket) => {
             
             if (room.players.p1 && room.players.p1.id === socket.id) {
                 io.to(roomId).emit('chat', {
-                    name: 'System',
-                    msg: `${room.players.p1.name} has left the game`
+                    sender: 'System',
+                    message: `${room.players.p1.name} has left the game`
                 });
                 room.players.p1 = null;
                 playerRemoved = true;
@@ -250,8 +273,8 @@ io.on('connection', (socket) => {
             
             if (room.players.p2 && room.players.p2.id === socket.id) {
                 io.to(roomId).emit('chat', {
-                    name: 'System',
-                    msg: `${room.players.p2.name} has left the game`
+                    sender: 'System',
+                    message: `${room.players.p2.name} has left the game`
                 });
                 room.players.p2 = null;
                 playerRemoved = true;
@@ -275,9 +298,14 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Serve game.html for direct game links
-app.get('/game.html', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'game.html'));
+// Serve cpu.html for CPU mode
+app.get('/cpu.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'cpu.html'));
+});
+
+// Serve pvp.html for PvP mode
+app.get('/pvp.html', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'pvp.html'));
 });
 
 // Handle 404

@@ -1,0 +1,260 @@
+/* PvP MODE SPECIFIC STYLES */
+
+/* Layout for PvP mode */
+.pvp-container .game-main {
+    grid-template-columns: 350px 1fr 350px;
+    grid-template-rows: 1fr auto;
+    gap: 20px;
+    height: calc(100vh - 150px);
+}
+
+/* Chat Panel */
+.chat-panel {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 30px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    max-height: 300px;
+    transition: all 0.3s ease;
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.chat-header i {
+    color: var(--accent);
+}
+
+.chat-toggle {
+    background: none;
+    border: none;
+    color: var(--secondary);
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: transform 0.3s ease;
+}
+
+.chat-toggle:hover {
+    transform: rotate(180deg);
+}
+
+.chat-section {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    background: rgba(var(--primary-rgb), 0.05);
+    border-radius: 10px;
+    margin-bottom: 15px;
+    max-height: 200px;
+}
+
+.message {
+    margin-bottom: 10px;
+    padding: 10px 15px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message.system {
+    background: rgba(var(--accent-rgb), 0.1);
+    border-left: 3px solid var(--accent);
+}
+
+.message-sender {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+}
+
+.message-content {
+    color: #333;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 12px 15px;
+    border: 2px solid var(--primary);
+    border-radius: 10px;
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.chat-input input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.chat-input button {
+    padding: 12px 20px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    min-width: 60px;
+}
+
+.chat-input button:hover {
+    background: var(--secondary);
+    transform: translateY(-2px);
+}
+
+/* Player indicators */
+.player-indicator {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    margin-top: 10px;
+    background: #ccc;
+    transition: all 0.3s ease;
+}
+
+.player-indicator.active {
+    background: #4CAF50;
+    box-shadow: 0 0 10px #4CAF50;
+}
+
+.player-indicator.thinking {
+    background: #FFC107;
+    animation: pulse 1s infinite;
+}
+
+/* Turn indicator */
+.turn-indicator {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: white;
+    padding: 5px 15px;
+    border-radius: 15px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Waiting state */
+.waiting-for-player {
+    opacity: 0.7;
+    filter: grayscale(0.5);
+}
+
+/* Match winner overlay */
+.match-winner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.match-winner-content {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 500px;
+    animation: scaleIn 0.5s ease;
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.match-winner-content h2 {
+    color: var(--accent);
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+}
+
+.match-winner-content p {
+    margin-bottom: 30px;
+    font-size: 1.2rem;
+}
+
+/* Responsive for PvP */
+@media (max-width: 1200px) {
+    .pvp-container .game-main {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto;
+    }
+    
+    .pvp-container .arena-center {
+        grid-column: 1 / -1;
+        order: -1;
+        margin-bottom: 20px;
+    }
+    
+    .chat-panel {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .pvp-container .game-main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto;
+    }
+    
+    .chat-panel {
+        max-height: 250px;
+    }
+    
+    .chat-messages {
+        max-height: 150px;
+    }
+}
