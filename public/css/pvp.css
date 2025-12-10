@@ -1,41 +1,102 @@
 /* PvP MODE SPECIFIC STYLES */
 
-/* Layout for PvP mode */
+/* Layout for PvP mode with right-side chat sidebar */
 .pvp-container .game-main {
-    grid-template-columns: 350px 1fr 350px;
-    grid-template-rows: 1fr auto;
+    display: grid;
+    grid-template-columns: 300px 1fr 300px;
+    grid-template-rows: 1fr;
     gap: 20px;
     height: calc(100vh - 150px);
 }
 
-/* Chat Panel */
+/* Right Player Panel - Fixed position */
+.pvp-container .right-panel {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+/* Chat Panel - Now as a sidebar overlay */
 .chat-panel {
-    grid-column: 1 / -1;
-    grid-row: 2;
+    position: fixed;
+    top: 0;
+    right: -400px; /* Start hidden off-screen */
+    width: 350px;
+    height: 100vh;
     background: var(--card-bg);
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 10px 30px var(--shadow);
+    box-shadow: -5px 0 30px rgba(0,0,0,0.2);
     display: flex;
     flex-direction: column;
-    max-height: 300px;
+    z-index: 1000;
+    transition: right 0.3s ease;
+    padding: 0;
+}
+
+.chat-panel.open {
+    right: 0;
+}
+
+/* Chat toggle button - Fixed position */
+.chat-toggle-btn {
+    position: fixed;
+    top: 100px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    z-index: 999;
+    box-shadow: 0 4px 15px var(--shadow);
     transition: all 0.3s ease;
 }
 
+.chat-toggle-btn:hover {
+    background: var(--secondary);
+    transform: scale(1.1);
+}
+
+.chat-toggle-btn .notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ff4757;
+    color: white;
+    font-size: 0.7rem;
+    padding: 3px 6px;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Chat header */
 .chat-header {
+    padding: 20px;
+    border-bottom: 2px solid rgba(var(--primary-rgb), 0.2);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid rgba(var(--primary-rgb), 0.2);
+    flex-shrink: 0;
 }
 
-.chat-header i {
-    color: var(--accent);
+.chat-header h3 {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-.chat-toggle {
+.close-chat {
     background: none;
     border: none;
     color: var(--secondary);
@@ -44,17 +105,21 @@
     transition: transform 0.3s ease;
 }
 
-.chat-toggle:hover {
-    transform: rotate(180deg);
+.close-chat:hover {
+    transform: rotate(90deg);
 }
 
+/* Chat section with fixed height */
 .chat-section {
     display: flex;
     flex-direction: column;
     flex: 1;
-    overflow: hidden;
+    min-height: 0;
+    padding: 20px;
+    padding-top: 0;
 }
 
+/* Chat messages with scrollbar */
 .chat-messages {
     flex: 1;
     overflow-y: auto;
@@ -62,9 +127,30 @@
     background: rgba(var(--primary-rgb), 0.05);
     border-radius: 10px;
     margin-bottom: 15px;
-    max-height: 200px;
+    min-height: 0;
+    max-height: calc(100vh - 250px); /* Fixed max height */
 }
 
+/* Custom scrollbar */
+.chat-messages::-webkit-scrollbar {
+    width: 8px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary);
+}
+
+/* Message styles */
 .message {
     margin-bottom: 10px;
     padding: 10px 15px;
@@ -72,6 +158,7 @@
     background: white;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     animation: slideIn 0.3s ease;
+    word-break: break-word;
 }
 
 @keyframes slideIn {
@@ -90,22 +177,42 @@
     border-left: 3px solid var(--accent);
 }
 
+.message.you {
+    background: rgba(var(--primary-rgb), 0.1);
+    border-left: 3px solid var(--primary);
+}
+
+.message.opponent {
+    background: rgba(255, 255, 255, 0.9);
+    border-left: 3px solid var(--secondary);
+}
+
 .message-sender {
     font-weight: 700;
     color: var(--accent);
     margin-bottom: 5px;
     font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.message-sender .timestamp {
+    font-size: 0.8rem;
+    color: #666;
+    font-weight: normal;
 }
 
 .message-content {
     color: #333;
     line-height: 1.4;
-    word-break: break-word;
 }
 
+/* Chat input */
 .chat-input {
     display: flex;
     gap: 10px;
+    flex-shrink: 0;
 }
 
 .chat-input input {
@@ -115,11 +222,13 @@
     border-radius: 10px;
     font-size: 1rem;
     transition: var(--transition);
+    background: white;
 }
 
 .chat-input input:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--shadow);
 }
 
 .chat-input button {
@@ -159,25 +268,52 @@
     animation: pulse 1s infinite;
 }
 
-/* Turn indicator */
-.turn-indicator {
-    position: absolute;
-    top: -15px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--accent);
-    color: white;
-    padding: 5px 15px;
+/* FIX CENTER TEXT MOVEMENT */
+.result-banner {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin: 20px 0;
+    padding: 20px 40px;
     border-radius: 15px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    white-space: nowrap;
+    background: rgba(var(--accent-rgb), 0.1);
+    text-align: center;
+    height: 80px; /* Fixed height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 80px; /* Minimum height */
+    max-height: 80px; /* Maximum height */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: resultAppear 0.3s ease;
+    line-height: 1.2; /* Better line height */
 }
 
-/* Waiting state */
-.waiting-for-player {
-    opacity: 0.7;
-    filter: grayscale(0.5);
+/* Arena Center - Fixed layout */
+.arena-center {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 10px 40px var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    min-height: 600px; /* Fixed minimum height */
+}
+
+/* Controls section - fixed position */
+.controls-section {
+    display: flex;
+    gap: 20px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
 }
 
 /* Match winner overlay */
@@ -192,7 +328,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 2000; /* Above chat */
     animation: fadeIn 0.5s ease;
 }
 
@@ -226,35 +362,84 @@
     font-size: 1.2rem;
 }
 
+/* Online status indicator */
+.online-status {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+}
+
+.online-status.online {
+    background: #4CAF50;
+    box-shadow: 0 0 5px #4CAF50;
+}
+
+.online-status.offline {
+    background: #ccc;
+}
+
 /* Responsive for PvP */
 @media (max-width: 1200px) {
     .pvp-container .game-main {
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: auto auto auto;
+        grid-template-rows: auto auto;
     }
     
     .pvp-container .arena-center {
         grid-column: 1 / -1;
         order: -1;
         margin-bottom: 20px;
+        min-height: 500px;
+    }
+    
+    .pvp-container .right-panel {
+        grid-column: 2;
+        grid-row: 1;
     }
     
     .chat-panel {
-        grid-column: 1 / -1;
+        width: 300px;
+        right: -300px;
+    }
+    
+    .chat-panel.open {
+        right: 0;
     }
 }
 
 @media (max-width: 768px) {
     .pvp-container .game-main {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto auto;
+        grid-template-rows: auto auto auto;
+    }
+    
+    .pvp-container .right-panel {
+        grid-column: 1;
+        grid-row: 3;
+    }
+    
+    .hand-display {
+        width: 150px;
+        height: 150px;
     }
     
     .chat-panel {
-        max-height: 250px;
+        width: 100%;
+        right: -100%;
     }
     
-    .chat-messages {
-        max-height: 150px;
+    .result-banner {
+        font-size: 1.8rem;
+        height: 70px;
+        min-height: 70px;
+        max-height: 70px;
+        padding: 15px 20px;
+    }
+    
+    .arena-center {
+        min-height: 500px;
+        padding: 20px;
     }
 }

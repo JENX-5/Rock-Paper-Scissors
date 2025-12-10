@@ -79,9 +79,9 @@ class CPUGame {
                 this.sprites = [];
                 for (let col = 0; col < cols; col++) {
                     const skin = {};
-                    skin.rock = this.cutSprite(img, col, 2, cw, ch);
-                    skin.paper = this.cutSprite(img, col, 3, cw, ch);
-                    skin.scissor = this.cutSprite(img, col, 0, cw, ch);
+                    skin.rock = this.cutSprite(img, col, 3, cw, ch);     // Row 0 = Rock
+                    skin.paper = this.cutSprite(img, col, 2, cw, ch);    // Row 1 = Paper  
+                    skin.scissor = this.cutSprite(img, col, 1, cw, ch);  // Row 2 = Scissors
                     this.sprites.push(skin);
                 }
                 console.log('Sprites loaded successfully');
@@ -129,10 +129,44 @@ class CPUGame {
 
     cutSprite(img, col, row, w, h) {
         const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, col * w, row * h, w, h, 0, 0, w, h);
+        
+        // Define crop margins (adjust these based on your sprite sheet)
+        const cropMargin = 10; // pixels to crop from each side
+        
+        // Calculate cropped dimensions
+        const srcX = col * w + cropMargin;
+        const srcY = row * h + cropMargin;
+        const srcWidth = w - (cropMargin * 2);
+        const srcHeight = h - (cropMargin * 2);
+        
+        // For scissors (row 1 in your 3,2,1 order)
+        if (row === 1) { // Scissors needs 90° clockwise rotation
+            // Create canvas large enough for rotated image
+            const maxDim = Math.max(srcWidth, srcHeight);
+            const size = maxDim * 1.2; // 20% padding for rotation
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Clear and set background to transparent
+            ctx.clearRect(0, 0, size, size);
+            
+            // Move to center, rotate, move back
+            ctx.translate(size / 2, size / 2);
+            ctx.rotate(90 * Math.PI / 180); // Fixed: 90° not 110°
+            ctx.translate(-size / 2, -size / 2);
+            
+            // Draw centered with original size (no scaling)
+            const drawX = (size - srcWidth) / 2;
+            const drawY = (size - srcHeight) / 2;
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, drawX, drawY, srcWidth, srcHeight);
+        } else {
+            // Normal drawing for paper and rock (with cropping)
+            canvas.width = srcWidth;
+            canvas.height = srcHeight;
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 0, 0, srcWidth, srcHeight);
+        }
+        
         return canvas.toDataURL();
     }
 

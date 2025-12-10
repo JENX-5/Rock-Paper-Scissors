@@ -193,6 +193,16 @@ body {
   flex-direction: column;
   gap: 25px;
 }
+.cpu-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.cpu-section .mode-btn.computer {
+  width: 100%;
+  
+}
 
 .mode-btn {
   padding: 20px;
@@ -516,21 +526,27 @@ body {
   color: var(--text);
 }
 
+/* Add to the result-banner styles in common CSS */
 .result-banner {
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: var(--accent);
-  margin: 20px 0;
-  padding: 20px 40px;
-  border-radius: 15px;
-  background: rgba(var(--accent-rgb), 0.1);
-  text-align: center;
-  min-height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  animation: resultAppear 0.3s ease;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--accent);
+    margin: 20px 0;
+    padding: 20px 40px;
+    border-radius: 15px;
+    background: rgba(var(--accent-rgb), 0.1);
+    text-align: center;
+    height: 80px; /* Fixed height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 80px; /* Minimum height */
+    max-height: 80px; /* Maximum height */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: resultAppear 0.3s ease;
+    line-height: 1.2;
 }
 
 @keyframes resultAppear {
@@ -765,3 +781,4 @@ body {
     flex-direction: column;
   }
 }
+

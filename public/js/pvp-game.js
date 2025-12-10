@@ -14,13 +14,15 @@ class PvPGame {
             timerInterval: null,
             isPlaying: false,
             myChoice: null,
-            opponentChoice: null
+            opponentChoice: null,
+            scores: { p1: 0, p2: 0 }
         };
         
         // Socket.io connection
         this.socket = io();
         this.myRole = null;
         this.opponent = null;
+        this.unreadMessages = 0;
         
         this.FIRST_TO = 5;
         
@@ -39,8 +41,8 @@ class PvPGame {
         document.body.classList.add('pvp-mode');
         
         // Set initial player info
-        document.getElementById('p1Name').textContent = 'Waiting...';
-        document.getElementById('p2Name').textContent = 'Waiting...';
+        document.getElementById('p1Name').textContent = 'Player 1';
+        document.getElementById('p2Name').textContent = 'Player 2';
         
         // Load sprites
         await this.loadSprites();
@@ -72,9 +74,9 @@ class PvPGame {
                 this.sprites = [];
                 for (let col = 0; col < cols; col++) {
                     const skin = {};
-                    skin.rock = this.cutSprite(img, col, 2, cw, ch);
-                    skin.paper = this.cutSprite(img, col, 3, cw, ch);
-                    skin.scissor = this.cutSprite(img, col, 0, cw, ch);
+                    skin.rock = this.cutSprite(img, col, 3, cw, ch);
+                    skin.paper = this.cutSprite(img, col, 2, cw, ch);
+                    skin.scissor = this.cutSprite(img, col, 1, cw, ch);
                     this.sprites.push(skin);
                 }
                 console.log('Sprites loaded successfully');
@@ -161,18 +163,14 @@ class PvPGame {
             });
         });
 
-        // Chat toggle
+        // Chat toggle button
         document.getElementById('chatToggle').addEventListener('click', () => {
-            const chatSection = document.querySelector('.chat-section');
-            const toggleIcon = document.querySelector('.chat-toggle i');
-            
-            if (chatSection.style.display === 'none') {
-                chatSection.style.display = 'flex';
-                toggleIcon.className = 'fas fa-chevron-down';
-            } else {
-                chatSection.style.display = 'none';
-                toggleIcon.className = 'fas fa-chevron-up';
-            }
+            this.toggleChat();
+        });
+
+        // Close chat button (in chat panel)
+        document.getElementById('closeChat').addEventListener('click', () => {
+            this.closeChat();
         });
 
         // Chat send
@@ -186,6 +184,48 @@ class PvPGame {
                 this.sendChatMessage();
             }
         });
+    }
+
+    toggleChat() {
+        const chatPanel = document.querySelector('.chat-panel');
+        const isOpen = chatPanel.classList.contains('open');
+        
+        if (isOpen) {
+            this.closeChat();
+        } else {
+            this.openChat();
+        }
+    }
+
+    openChat() {
+        const chatPanel = document.querySelector('.chat-panel');
+        chatPanel.classList.add('open');
+        
+        // Reset unread count
+        this.unreadMessages = 0;
+        this.updateChatBadge();
+        
+        // Focus input
+        setTimeout(() => {
+            document.getElementById('chatInput').focus();
+        }, 300);
+    }
+
+    closeChat() {
+        const chatPanel = document.querySelector('.chat-panel');
+        chatPanel.classList.remove('open');
+    }
+
+    updateChatBadge() {
+        const badge = document.querySelector('.notification-badge');
+        if (badge) {
+            if (this.unreadMessages > 0) {
+                badge.textContent = this.unreadMessages;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
     }
 
     setupSocket() {
@@ -216,6 +256,7 @@ class PvPGame {
         this.socket.on('players', (data) => {
             console.log('Players updated:', data);
             this.updatePlayers(data);
+            this.gameState.scores = data.scores;
         });
 
         this.socket.on('choiceMade', (data) => {
@@ -227,10 +268,14 @@ class PvPGame {
                 
                 // Show opponent's choice
                 const opponentPanel = this.myRole === 'p1' ? 'p2' : 'p1';
-                document.getElementById(`${opponentPanel}Img`).src = 
-                    this.sprites[opponentPanel === 'p1' ? 
-                        (data.player === 'p1' ? this.mySkin : (this.opponent?.skin || 0)) : 
-                        (data.player === 'p2' ? this.mySkin : (this.opponent?.skin || 0))][data.choice];
+                const opponentSkin = opponentPanel === 'p1' ? 
+                    (data.player === 'p1' ? this.mySkin : (this.opponent?.skin || 0)) : 
+                    (data.player === 'p2' ? this.mySkin : (this.opponent?.skin || 0));
+                
+                if (this.sprites[opponentSkin]) {
+                    document.getElementById(`${opponentPanel}Img`).src = 
+                        this.sprites[opponentSkin][data.choice];
+                }
                 
                 // Update indicator
                 document.getElementById(`${opponentPanel}Indicator`).className = 'player-indicator thinking';
@@ -248,7 +293,15 @@ class PvPGame {
         });
 
         this.socket.on('chat', (data) => {
-            this.addChatMessage(data.sender, data.message);
+            // Add message
+            this.addChatMessage(data.sender, data.message, data.timestamp);
+            
+            // Increment unread if chat is closed
+            const chatPanel = document.querySelector('.chat-panel');
+            if (!chatPanel.classList.contains('open')) {
+                this.unreadMessages++;
+                this.updateChatBadge();
+            }
         });
 
         this.socket.on('error', (error) => {
@@ -427,12 +480,17 @@ class PvPGame {
     }
 
     showRoundResult(data) {
+        console.log('Showing round result:', data);
+        
         // Clear playing state
         this.gameState.isPlaying = false;
         this.gameState.myChoice = null;
         this.gameState.opponentChoice = null;
         
-        // Update scores
+        // Update scores in game state
+        this.gameState.scores = data.scores;
+        
+        // Update scores display
         document.getElementById('p1Score').textContent = data.scores.p1;
         document.getElementById('p2Score').textContent = data.scores.p2;
         
@@ -454,9 +512,19 @@ class PvPGame {
             const loserMove = data[data.winner === 'p1' ? 'p2' : 'p1'];
             
             resultText = `${winnerName} wins! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
-            resultType = data.winner === this.myRole ? 'win' : 'lose';
             
-            if (data.winner === this.myRole) {
+            // Check if I won
+            const iWon = data.winner === this.myRole;
+            resultType = iWon ? 'win' : 'lose';
+            
+            // Add "You" prefix if it's me
+            if (data.players[data.winner].id === this.socket.id) {
+                resultText = `You win! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
+            } else if (data.players[data.winner === 'p1' ? 'p2' : 'p1'].id === this.socket.id) {
+                resultText = `You lose! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
+            }
+            
+            if (iWon) {
                 this.showConfetti();
             } else {
                 this.showFire();
@@ -475,8 +543,11 @@ class PvPGame {
 
     prepareNextRound() {
         // Reset hand images to default
-        document.getElementById('p1Img').src = this.sprites[this.myRole === 'p1' ? this.mySkin : (this.opponent?.skin || 0)].rock;
-        document.getElementById('p2Img').src = this.sprites[this.myRole === 'p2' ? this.mySkin : (this.opponent?.skin || 0)].rock;
+        const p1Skin = this.myRole === 'p1' ? this.mySkin : (this.opponent?.skin || 0);
+        const p2Skin = this.myRole === 'p2' ? this.mySkin : (this.opponent?.skin || 0);
+        
+        document.getElementById('p1Img').src = this.sprites[p1Skin].rock;
+        document.getElementById('p2Img').src = this.sprites[p2Skin].rock;
         
         // Reset indicators
         document.getElementById('p1Indicator').className = 'player-indicator';
@@ -496,7 +567,8 @@ class PvPGame {
         const winnerName = data.winnerName;
         const isWinner = data.winner === this.myRole;
         
-        this.showBanner(`${winnerName} wins the match! 🏆`, 'victory');
+        const resultText = isWinner ? '🏆 You win the match! 🏆' : `${winnerName} wins the match!`;
+        this.showBanner(resultText, 'victory');
         
         if (isWinner) {
             this.showConfetti();
@@ -556,7 +628,8 @@ class PvPGame {
             timerInterval: null,
             isPlaying: false,
             myChoice: null,
-            opponentChoice: null
+            opponentChoice: null,
+            scores: { p1: 0, p2: 0 }
         };
         
         // Reset UI
@@ -610,27 +683,41 @@ class PvPGame {
         const message = input.value.trim();
         
         if (message && this.myRole) {
+            // Send message to server
             this.socket.emit('chat', {
                 room: this.roomId,
                 sender: this.myName,
                 message: message
             });
             
-            // Add my own message to chat immediately
-            this.addChatMessage(this.myName, message);
-            
             // Clear input
             input.value = '';
         }
     }
 
-    addChatMessage(sender, message) {
+    addChatMessage(sender, message, timestamp) {
         const chatMessages = document.getElementById('chatMessages');
         const messageDiv = document.createElement('div');
         
-        messageDiv.className = sender === 'System' ? 'message system' : 'message';
+        // Determine message class
+        let messageClass = 'message';
+        if (sender === 'System') {
+            messageClass = 'message system';
+        } else if (sender === this.myName) {
+            messageClass = 'message you';
+        } else {
+            messageClass = 'message opponent';
+        }
+        
+        // Format timestamp
+        const displayTime = timestamp || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        messageDiv.className = messageClass;
         messageDiv.innerHTML = `
-            <div class="message-sender">${sender}</div>
+            <div class="message-sender">
+                ${sender}
+                <span class="timestamp">${displayTime}</span>
+            </div>
             <div class="message-content">${message}</div>
         `;
         

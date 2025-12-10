@@ -221,10 +221,11 @@ io.on('connection', (socket) => {
     socket.on('chat', ({ room, sender, message }) => {
         const roomObj = getRoom(room);
         if (roomObj) {
+            // Broadcast to all in room INCLUDING sender
             io.to(roomObj.id).emit('chat', { 
                 sender: sender, 
                 message: message,
-                timestamp: new Date().toLocaleTimeString()
+                timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             });
         }
     });
