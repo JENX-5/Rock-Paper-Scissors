@@ -12,7 +12,7 @@
 
 /* Computer panel styling */
 .cpu-container .right-panel .player-name::after {
-    content: " 🤖";
+    content: " ";
     margin-left: 10px;
 }
 

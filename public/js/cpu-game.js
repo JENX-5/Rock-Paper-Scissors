@@ -57,7 +57,9 @@ class CPUGame {
         
         // Set initial hand images
         document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
-        document.getElementById('p2Img').src = this.sprites[this.cpu.skin].rock;
+        
+        // ALWAYS flip CPU image (not just when CPU moves) - FIXED
+        document.getElementById('p2Img').src = await this.getFlippedCPUSprite('rock');
         
         // Setup event listeners
         this.setupEventListeners();
@@ -79,9 +81,10 @@ class CPUGame {
                 this.sprites = [];
                 for (let col = 0; col < cols; col++) {
                     const skin = {};
-                    skin.rock = this.cutSprite(img, col, 3, cw, ch);     // Row 0 = Rock
-                    skin.paper = this.cutSprite(img, col, 2, cw, ch);    // Row 1 = Paper  
-                    skin.scissor = this.cutSprite(img, col, 1, cw, ch);  // Row 2 = Scissors
+                    // Cut sprites with transformations for Player 1
+                    skin.rock = this.cutSprite(img, col, 3, cw, ch, 'rock');
+                    skin.paper = this.cutSprite(img, col, 2, cw, ch, 'paper');
+                    skin.scissor = this.cutSprite(img, col, 1, cw, ch, 'scissor');
                     this.sprites.push(skin);
                 }
                 console.log('Sprites loaded successfully');
@@ -127,12 +130,12 @@ class CPUGame {
         return 'data:image/svg+xml,' + encodeURIComponent(svg);
     }
 
-    cutSprite(img, col, row, w, h) {
+    cutSprite(img, col, row, w, h, type) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        // Define crop margins (adjust these based on your sprite sheet)
-        const cropMargin = 10; // pixels to crop from each side
+        // Define crop margins
+        const cropMargin = 5;
         
         // Calculate cropped dimensions
         const srcX = col * w + cropMargin;
@@ -140,34 +143,66 @@ class CPUGame {
         const srcWidth = w - (cropMargin * 2);
         const srcHeight = h - (cropMargin * 2);
         
-        // For scissors (row 1 in your 3,2,1 order)
-        if (row === 1) { // Scissors needs 90° clockwise rotation
-            // Create canvas large enough for rotated image
-            const maxDim = Math.max(srcWidth, srcHeight);
-            const size = maxDim * 1.2; // 20% padding for rotation
-            canvas.width = size;
-            canvas.height = size;
+        // Set canvas size
+        canvas.width = srcWidth;
+        canvas.height = srcHeight;
+        
+        if (type === 'scissor') {
+            // For scissors: rotate 90° clockwise
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(90 * Math.PI / 180);
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 
+                         -srcWidth / 2, -srcHeight / 2, srcWidth, srcHeight);
             
-            // Clear and set background to transparent
-            ctx.clearRect(0, 0, size, size);
+        } else if (type === 'paper') {
+            // For paper: FLIP VERTICALLY for Player 1
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 
+                         0, 0, srcWidth, srcHeight);
             
-            // Move to center, rotate, move back
-            ctx.translate(size / 2, size / 2);
-            ctx.rotate(90 * Math.PI / 180); // Fixed: 90° not 110°
-            ctx.translate(-size / 2, -size / 2);
-            
-            // Draw centered with original size (no scaling)
-            const drawX = (size - srcWidth) / 2;
-            const drawY = (size - srcHeight) / 2;
-            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, drawX, drawY, srcWidth, srcHeight);
         } else {
-            // Normal drawing for paper and rock (with cropping)
-            canvas.width = srcWidth;
-            canvas.height = srcHeight;
-            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 0, 0, srcWidth, srcHeight);
+            // For rock: normal (no transformation)
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 
+                         0, 0, srcWidth, srcHeight);
         }
         
         return canvas.toDataURL();
+    }
+
+    // Function to horizontally flip any image URL (for CPU/Player 2)
+    horizontallyFlipImage(imageUrl) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Flip horizontally (mirror)
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(img, 0, 0);
+                
+                resolve(canvas.toDataURL());
+            };
+            
+            img.onerror = () => {
+                // If can't load, return original
+                resolve(imageUrl);
+            };
+            
+            img.src = imageUrl;
+        });
+    }
+
+    // NEW: Helper function to always get flipped CPU sprite
+    async getFlippedCPUSprite(moveType) {
+        const playerSpriteUrl = this.sprites[this.cpu.skin][moveType];
+        return await this.horizontallyFlipImage(playerSpriteUrl);
     }
 
     setupEventListeners() {
@@ -286,7 +321,7 @@ class CPUGame {
         }
     }
 
-    makeMove(playerMove) {
+    async makeMove(playerMove) {
         if (this.gameState.isPlaying) return;
         
         console.log('Player chose:', playerMove);
@@ -301,20 +336,23 @@ class CPUGame {
         this.showBanner('Computer is thinking...', 'info');
         
         // CPU "thinking" delay
-        setTimeout(() => {
-            this.cpuMove(playerMove);
+        setTimeout(async () => {
+            await this.cpuMove(playerMove);
         }, this.cpu.thinkingTime);
     }
 
-    cpuMove(playerMove) {
+    async cpuMove(playerMove) {
         // CPU chooses random move
         const moves = ['rock', 'paper', 'scissor'];
         const cpuMove = moves[Math.floor(Math.random() * moves.length)];
         
         console.log('CPU chose:', cpuMove);
         
-        // Show CPU move
-        document.getElementById('p2Img').src = this.sprites[this.cpu.skin][cpuMove];
+        // Get flipped CPU sprite (always flipped)
+        const flippedSprite = await this.getFlippedCPUSprite(cpuMove);
+        
+        // Show flipped CPU move
+        document.getElementById('p2Img').src = flippedSprite;
         
         // Show what CPU picked in the banner
         this.showBanner(`Computer picked ${cpuMove.toUpperCase()}!`, 'info');
@@ -394,16 +432,18 @@ class CPUGame {
             }, 1500);
         } else {
             // Prepare for next round
-            setTimeout(() => {
-                this.prepareNextRound();
+            setTimeout(async () => {
+                await this.prepareNextRound();
             }, 2000);
         }
     }
 
-    prepareNextRound() {
+    async prepareNextRound() {
         // Reset hand images to default
         document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
-        document.getElementById('p2Img').src = this.sprites[this.cpu.skin].rock;
+        
+        // ALWAYS flip CPU's rock
+        document.getElementById('p2Img').src = await this.getFlippedCPUSprite('rock');
         
         // Enable controls
         this.enableControls();
@@ -418,7 +458,7 @@ class CPUGame {
         this.showBanner('Choose your move!', 'info');
     }
 
-    resetGame() {
+    async resetGame() {
         console.log('Resetting game');
         
         // Reset scores
@@ -433,7 +473,9 @@ class CPUGame {
         
         // Reset hand images
         document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
-        document.getElementById('p2Img').src = this.sprites[this.cpu.skin].rock;
+        
+        // ALWAYS flip CPU's rock
+        document.getElementById('p2Img').src = await this.getFlippedCPUSprite('rock');
         
         // Clear any existing timer
         if (this.gameState.timerInterval) {

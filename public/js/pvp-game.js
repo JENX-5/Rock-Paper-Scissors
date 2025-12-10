@@ -15,7 +15,7 @@ class PvPGame {
             isPlaying: false,
             myChoice: null,
             opponentChoice: null,
-            scores: { p1: 0, p2: 0 }
+            scores: { myScore: 0, opponentScore: 0 }
         };
         
         // Socket.io connection
@@ -25,6 +25,7 @@ class PvPGame {
         this.unreadMessages = 0;
         
         this.FIRST_TO = 5;
+        this.isMatchEnded = false;
         
         // Initialize
         this.init();
@@ -41,15 +42,17 @@ class PvPGame {
         document.body.classList.add('pvp-mode');
         
         // Set initial player info
-        document.getElementById('p1Name').textContent = 'Player 1';
-        document.getElementById('p2Name').textContent = 'Player 2';
+        document.getElementById('p1Name').textContent = this.myName;
+        document.getElementById('p1Status').textContent = 'You';
+        document.getElementById('p2Name').textContent = 'Opponent';
+        document.getElementById('p2Status').textContent = 'Waiting...';
         
         // Load sprites
         await this.loadSprites();
         
         // Set initial hand images
         document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
-        document.getElementById('p2Img').src = this.sprites[(this.mySkin + 1) % 4].rock;
+        document.getElementById('p2Img').src = await this.horizontallyFlipImage(this.sprites[(this.mySkin + 1) % 4].rock);
         
         // Setup event listeners
         this.setupEventListeners();
@@ -74,9 +77,9 @@ class PvPGame {
                 this.sprites = [];
                 for (let col = 0; col < cols; col++) {
                     const skin = {};
-                    skin.rock = this.cutSprite(img, col, 3, cw, ch);
-                    skin.paper = this.cutSprite(img, col, 2, cw, ch);
-                    skin.scissor = this.cutSprite(img, col, 1, cw, ch);
+                    skin.rock = this.cutSprite(img, col, 3, cw, ch, 'rock');
+                    skin.paper = this.cutSprite(img, col, 2, cw, ch, 'paper');
+                    skin.scissor = this.cutSprite(img, col, 1, cw, ch, 'scissor');
                     this.sprites.push(skin);
                 }
                 console.log('Sprites loaded successfully');
@@ -85,7 +88,6 @@ class PvPGame {
             
             img.onerror = () => {
                 console.log('Using fallback sprites');
-                // Create simple colored shapes as fallback
                 this.sprites = Array(4).fill().map((_, skinIndex) => {
                     const colors = [
                         ['#4fc3f7', '#0288d1'],
@@ -122,38 +124,84 @@ class PvPGame {
         return 'data:image/svg+xml,' + encodeURIComponent(svg);
     }
 
-    cutSprite(img, col, row, w, h) {
+    cutSprite(img, col, row, w, h, type) {
         const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, col * w, row * h, w, h, 0, 0, w, h);
+        
+        const cropMargin = 5;
+        const srcX = col * w + cropMargin;
+        const srcY = row * h + cropMargin;
+        const srcWidth = w - (cropMargin * 2);
+        const srcHeight = h - (cropMargin * 2);
+        
+        canvas.width = srcWidth;
+        canvas.height = srcHeight;
+        
+        if (type === 'scissor') {
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(90 * Math.PI / 180);
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 
+                        -srcWidth / 2, -srcHeight / 2, srcWidth, srcHeight);
+            
+        } else if (type === 'paper') {
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 
+                        0, 0, srcWidth, srcHeight);
+            
+        } else {
+            ctx.drawImage(img, srcX, srcY, srcWidth, srcHeight, 
+                        0, 0, srcWidth, srcHeight);
+        }
+        
         return canvas.toDataURL();
     }
 
+    horizontallyFlipImage(imageUrl) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(img, 0, 0);
+                
+                resolve(canvas.toDataURL());
+            };
+            
+            img.onerror = () => {
+                resolve(imageUrl);
+            };
+            
+            img.src = imageUrl;
+        });
+    }
+
     setupEventListeners() {
-        // Leave game
         document.getElementById('leave').addEventListener('click', () => {
             if (confirm('Leave the game?')) {
                 window.location.href = '/';
             }
         });
 
-        // Reset scores
         document.getElementById('resetScores').addEventListener('click', () => {
             if (confirm('Reset scores?')) {
                 this.socket.emit('reset', { room: this.roomId });
             }
         });
 
-        // Move buttons
         document.querySelectorAll('.move-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                if (this.gameState.isPlaying || !this.myRole) return;
+                if (this.gameState.isPlaying || !this.myRole || this.isMatchEnded) return;
                 
                 const move = e.currentTarget.dataset.move;
                 
-                // Visual feedback
                 document.querySelectorAll('.move-btn').forEach(b => {
                     b.classList.remove('selected');
                 });
@@ -163,22 +211,18 @@ class PvPGame {
             });
         });
 
-        // Chat toggle button
         document.getElementById('chatToggle').addEventListener('click', () => {
             this.toggleChat();
         });
 
-        // Close chat button (in chat panel)
         document.getElementById('closeChat').addEventListener('click', () => {
             this.closeChat();
         });
 
-        // Chat send
         document.getElementById('chatSend').addEventListener('click', () => {
             this.sendChatMessage();
         });
 
-        // Chat input enter key
         document.getElementById('chatInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.sendChatMessage();
@@ -201,11 +245,9 @@ class PvPGame {
         const chatPanel = document.querySelector('.chat-panel');
         chatPanel.classList.add('open');
         
-        // Reset unread count
         this.unreadMessages = 0;
         this.updateChatBadge();
         
-        // Focus input
         setTimeout(() => {
             document.getElementById('chatInput').focus();
         }, 300);
@@ -220,7 +262,7 @@ class PvPGame {
         const badge = document.querySelector('.notification-badge');
         if (badge) {
             if (this.unreadMessages > 0) {
-                badge.textContent = this.unreadMessages;
+                badge.textContent = Math.min(this.unreadMessages, 99);
                 badge.style.display = 'flex';
             } else {
                 badge.style.display = 'none';
@@ -229,21 +271,18 @@ class PvPGame {
     }
 
     setupSocket() {
-        // Socket event handlers
         this.socket.on('joined', (data) => {
             console.log('Joined room as:', data.role);
             this.myRole = data.role;
             this.roomId = data.room;
+            this.isMatchEnded = false;
             
-            // Update room display
             document.getElementById('roomLabel').textContent = `Room: ${this.roomId}`;
             
-            // Update opponent info if available
             if (data.opponent) {
                 this.updateOpponent(data.opponent);
             }
             
-            // Enable controls if we're the second player
             if (data.role === 'p2') {
                 this.enableControls();
                 this.showBanner('Game started! Choose your move!', 'info');
@@ -253,32 +292,28 @@ class PvPGame {
             }
         });
 
-        this.socket.on('players', (data) => {
+        this.socket.on('players', async (data) => {
             console.log('Players updated:', data);
-            this.updatePlayers(data);
-            this.gameState.scores = data.scores;
+            await this.updatePlayers(data);
+            // Store server scores for reference
+            this.serverScores = data.scores;
         });
 
-        this.socket.on('choiceMade', (data) => {
+        this.socket.on('choiceMade', async (data) => {
             console.log('Opponent made choice:', data);
             
             if (data.player !== this.myRole) {
                 this.gameState.opponentChoice = data.choice;
-                this.showBanner('Opponent has chosen!', 'info');
                 
-                // Show opponent's choice
-                const opponentPanel = this.myRole === 'p1' ? 'p2' : 'p1';
-                const opponentSkin = opponentPanel === 'p1' ? 
-                    (data.player === 'p1' ? this.mySkin : (this.opponent?.skin || 0)) : 
-                    (data.player === 'p2' ? this.mySkin : (this.opponent?.skin || 0));
+                const opponentSkin = this.opponent?.skin || 0;
                 
                 if (this.sprites[opponentSkin]) {
-                    document.getElementById(`${opponentPanel}Img`).src = 
-                        this.sprites[opponentSkin][data.choice];
+                    const opponentSprite = this.sprites[opponentSkin][data.choice];
+                    const flippedSprite = await this.horizontallyFlipImage(opponentSprite);
+                    document.getElementById('p2Img').src = flippedSprite;
                 }
                 
-                // Update indicator
-                document.getElementById(`${opponentPanel}Indicator`).className = 'player-indicator thinking';
+                document.getElementById('p2Indicator').className = 'player-indicator thinking';
             }
         });
 
@@ -289,14 +324,37 @@ class PvPGame {
 
         this.socket.on('matchWinner', (data) => {
             console.log('Match winner:', data);
-            this.showMatchWinner(data);
+            this.isMatchEnded = true;
+            
+            if (this.gameState.timerInterval) {
+                clearInterval(this.gameState.timerInterval);
+                this.gameState.timerInterval = null;
+            }
+            
+            this.disableControls();
+            
+            // FIX: Correctly display who won
+            const isWinner = data.winner === this.myRole;
+            const winnerName = isWinner ? this.myName : (this.opponent?.name || 'Opponent');
+            const resultText = isWinner ? '🏆 You win the match! 🏆' : `${winnerName} wins the match!`;
+            
+            this.showBanner(resultText, 'victory');
+            
+            if (isWinner) {
+                this.showConfetti();
+            } else {
+                this.showFire();
+            }
+            
+            // Show match result overlay with correct scores
+            setTimeout(() => {
+                this.showMatchResultOverlay(data, winnerName);
+            }, 2000);
         });
 
         this.socket.on('chat', (data) => {
-            // Add message
             this.addChatMessage(data.sender, data.message, data.timestamp);
             
-            // Increment unread if chat is closed
             const chatPanel = document.querySelector('.chat-panel');
             if (!chatPanel.classList.contains('open')) {
                 this.unreadMessages++;
@@ -319,65 +377,81 @@ class PvPGame {
         });
     }
 
-    updatePlayers(data) {
-        // Update player 1 info
-        if (data.p1) {
+    async updatePlayers(data) {
+        // FIXED: Always show my info on left, opponent on right regardless of server role
+        if (data.p1 && data.p1.id === this.socket.id) {
+            // I am Player 1
+            this.opponent = data.p2;
+            
+            // Left panel (me)
             document.getElementById('p1Name').textContent = data.p1.name;
-            document.getElementById('p1Status').textContent = data.p1.id === this.socket.id ? 'You' : 'Opponent';
+            document.getElementById('p1Status').textContent = 'You';
             document.getElementById('p1Score').textContent = data.scores.p1;
             
-            if (data.p1.id !== this.socket.id) {
-                this.opponent = data.p1;
-                document.getElementById('p1Img').src = this.sprites[data.p1.skin].rock;
+            // Right panel (opponent or waiting)
+            if (data.p2) {
+                document.getElementById('p2Name').textContent = data.p2.name;
+                document.getElementById('p2Status').textContent = 'Opponent';
+                document.getElementById('p2Score').textContent = data.scores.p2;
+                const flippedRock = await this.horizontallyFlipImage(this.sprites[data.p2.skin].rock);
+                document.getElementById('p2Img').src = flippedRock;
+            } else {
+                document.getElementById('p2Name').textContent = 'Waiting...';
+                document.getElementById('p2Status').textContent = 'Not connected';
+                document.getElementById('p2Score').textContent = '0';
             }
-        } else {
-            document.getElementById('p1Name').textContent = 'Waiting...';
-            document.getElementById('p1Status').textContent = 'Not connected';
-            document.getElementById('p1Indicator').className = 'player-indicator';
-        }
-
-        // Update player 2 info
-        if (data.p2) {
-            document.getElementById('p2Name').textContent = data.p2.name;
-            document.getElementById('p2Status').textContent = data.p2.id === this.socket.id ? 'You' : 'Opponent';
-            document.getElementById('p2Score').textContent = data.scores.p2;
             
-            if (data.p2.id !== this.socket.id) {
-                this.opponent = data.p2;
-                document.getElementById('p2Img').src = this.sprites[data.p2.skin].rock;
+        } else if (data.p2 && data.p2.id === this.socket.id) {
+            // I am Player 2
+            this.opponent = data.p1;
+            
+            // Left panel (me)
+            document.getElementById('p1Name').textContent = data.p2.name;
+            document.getElementById('p1Status').textContent = 'You';
+            document.getElementById('p1Score').textContent = data.scores.p2; // My score is p2 score
+            
+            // Right panel (opponent)
+            if (data.p1) {
+                document.getElementById('p2Name').textContent = data.p1.name;
+                document.getElementById('p2Status').textContent = 'Opponent';
+                document.getElementById('p2Score').textContent = data.scores.p1; // Opponent score is p1 score
+                const flippedRock = await this.horizontallyFlipImage(this.sprites[data.p1.skin].rock);
+                document.getElementById('p2Img').src = flippedRock;
+            } else {
+                document.getElementById('p2Name').textContent = 'Waiting...';
+                document.getElementById('p2Status').textContent = 'Not connected';
+                document.getElementById('p2Score').textContent = '0';
             }
         } else {
-            document.getElementById('p2Name').textContent = 'Waiting...';
-            document.getElementById('p2Status').textContent = 'Not connected';
-            document.getElementById('p2Indicator').className = 'player-indicator';
+            // Spectator view (shouldn't happen)
+            if (data.p1) {
+                document.getElementById('p1Name').textContent = data.p1.name;
+                document.getElementById('p1Status').textContent = 'Player 1';
+                document.getElementById('p1Score').textContent = data.scores.p1;
+            }
+            if (data.p2) {
+                document.getElementById('p2Name').textContent = data.p2.name;
+                document.getElementById('p2Status').textContent = 'Player 2';
+                document.getElementById('p2Score').textContent = data.scores.p2;
+            }
         }
 
-        // Update round
         document.getElementById('roundNumber').textContent = data.round;
 
-        // Update indicators
-        if (data.p1 && data.p1.id === this.socket.id) {
-            document.getElementById('p1Indicator').className = 'player-indicator active';
-        }
-        if (data.p2 && data.p2.id === this.socket.id) {
-            document.getElementById('p2Indicator').className = 'player-indicator active';
-        }
-
         // Check if game can start
-        if (data.p1 && data.p2 && !this.gameState.isPlaying) {
+        if (data.p1 && data.p2 && !this.gameState.isPlaying && !this.isMatchEnded) {
             this.enableControls();
-            this.showBanner('Game started! Choose your move!', 'info');
             this.startTimer();
         }
     }
 
-    updateOpponent(opponent) {
+    async updateOpponent(opponent) {
         this.opponent = opponent;
         if (opponent) {
-            const opponentPanel = this.myRole === 'p1' ? 'p2' : 'p1';
-            document.getElementById(`${opponentPanel}Name`).textContent = opponent.name;
-            document.getElementById(`${opponentPanel}Status`).textContent = 'Opponent';
-            document.getElementById(`${opponentPanel}Img`).src = this.sprites[opponent.skin].rock;
+            document.getElementById('p2Name').textContent = opponent.name;
+            document.getElementById('p2Status').textContent = 'Opponent';
+            const flippedRock = await this.horizontallyFlipImage(this.sprites[opponent.skin].rock);
+            document.getElementById('p2Img').src = flippedRock;
         }
     }
 
@@ -396,24 +470,20 @@ class PvPGame {
     }
 
     startTimer() {
-        // Clear any existing timer
         if (this.gameState.timerInterval) {
             clearInterval(this.gameState.timerInterval);
         }
         
-        // Reset timer
         this.gameState.timer = 10;
         this.updateTimerDisplay();
         
-        // Start countdown
         this.gameState.timerInterval = setInterval(() => {
             this.gameState.timer--;
             this.updateTimerDisplay();
             
-            // Auto-play when timer reaches 0
             if (this.gameState.timer <= 0) {
                 clearInterval(this.gameState.timerInterval);
-                if (!this.gameState.isPlaying && this.myRole) {
+                if (!this.gameState.isPlaying && this.myRole && !this.isMatchEnded) {
                     this.autoPlay();
                 }
             }
@@ -426,7 +496,6 @@ class PvPGame {
         
         document.getElementById('timerText').textContent = timeText;
         
-        // Warning color for last 5 seconds
         if (this.gameState.timer <= 5) {
             timerEl.classList.add('warning');
         } else {
@@ -435,15 +504,13 @@ class PvPGame {
     }
 
     autoPlay() {
-        if (this.gameState.isPlaying || !this.myRole) return;
+        if (this.gameState.isPlaying || !this.myRole || this.isMatchEnded) return;
         
-        // Randomly select a move
         const moves = ['rock', 'paper', 'scissor'];
         const randomMove = moves[Math.floor(Math.random() * moves.length)];
         
         console.log('Auto-playing:', randomMove);
         
-        // Highlight the auto-selected move
         const autoBtn = document.querySelector(`[data-move="${randomMove}"]`);
         if (autoBtn) {
             autoBtn.classList.add('selected');
@@ -453,25 +520,25 @@ class PvPGame {
         }
     }
 
-    makeMove(move) {
-        if (this.gameState.isPlaying || !this.myRole) return;
+    async makeMove(move) {
+        if (this.gameState.isPlaying || !this.myRole || this.isMatchEnded) return;
         
         console.log('Making move:', move);
         
-        // Set playing state
         this.gameState.isPlaying = true;
         this.gameState.myChoice = move;
         this.disableControls();
-        clearInterval(this.gameState.timerInterval);
         
-        // Show my move
-        const myPanel = this.myRole === 'p1' ? 'p1' : 'p2';
-        document.getElementById(`${myPanel}Img`).src = this.sprites[this.mySkin][move];
+        if (this.gameState.timerInterval) {
+            clearInterval(this.gameState.timerInterval);
+            this.gameState.timerInterval = null;
+        }
         
-        // Show opponent is thinking
+        document.getElementById('p1Img').src = this.sprites[this.mySkin][move];
+        document.getElementById('p2Indicator').className = 'player-indicator thinking';
+        
         this.showBanner('Waiting for opponent...', 'info');
         
-        // Send move to server
         this.socket.emit('play', {
             room: this.roomId,
             role: this.myRole,
@@ -479,26 +546,27 @@ class PvPGame {
         });
     }
 
-    showRoundResult(data) {
+    async showRoundResult(data) {
         console.log('Showing round result:', data);
         
-        // Clear playing state
         this.gameState.isPlaying = false;
         this.gameState.myChoice = null;
         this.gameState.opponentChoice = null;
         
-        // Update scores in game state
-        this.gameState.scores = data.scores;
+        // FIXED: Update scores based on which player I am
+        if (data.players.p1 && data.players.p1.id === this.socket.id) {
+            // I am Player 1
+            document.getElementById('p1Score').textContent = data.scores.p1;
+            document.getElementById('p2Score').textContent = data.scores.p2;
+        } else if (data.players.p2 && data.players.p2.id === this.socket.id) {
+            // I am Player 2
+            document.getElementById('p1Score').textContent = data.scores.p2;
+            document.getElementById('p2Score').textContent = data.scores.p1;
+        }
         
-        // Update scores display
-        document.getElementById('p1Score').textContent = data.scores.p1;
-        document.getElementById('p2Score').textContent = data.scores.p2;
-        
-        // Update round
         document.getElementById('roundNumber').textContent = data.round;
         this.gameState.round = data.round;
         
-        // Show result
         let resultText = '';
         let resultType = 'draw';
         
@@ -511,85 +579,59 @@ class PvPGame {
             const winnerMove = data[data.winner];
             const loserMove = data[data.winner === 'p1' ? 'p2' : 'p1'];
             
-            resultText = `${winnerName} wins! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
-            
             // Check if I won
-            const iWon = data.winner === this.myRole;
+            const iWon = data.players[data.winner].id === this.socket.id;
             resultType = iWon ? 'win' : 'lose';
             
-            // Add "You" prefix if it's me
-            if (data.players[data.winner].id === this.socket.id) {
-                resultText = `You win! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
-            } else if (data.players[data.winner === 'p1' ? 'p2' : 'p1'].id === this.socket.id) {
-                resultText = `You lose! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
-            }
-            
             if (iWon) {
+                resultText = `You win! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
                 this.showConfetti();
             } else {
+                resultText = `You lose! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
                 this.showFire();
             }
         }
         
         this.showBanner(resultText, resultType);
         
-        // Reset for next round after delay
-        setTimeout(() => {
-            if (data.scores.p1 < this.FIRST_TO && data.scores.p2 < this.FIRST_TO) {
-                this.prepareNextRound();
-            }
-        }, 2000);
+        // Reset for next round if match not ended
+        if (data.scores.p1 < this.FIRST_TO && data.scores.p2 < this.FIRST_TO) {
+            setTimeout(async () => {
+                await this.prepareNextRound();
+            }, 2000);
+        }
     }
 
-    prepareNextRound() {
-        // Reset hand images to default
-        const p1Skin = this.myRole === 'p1' ? this.mySkin : (this.opponent?.skin || 0);
-        const p2Skin = this.myRole === 'p2' ? this.mySkin : (this.opponent?.skin || 0);
+    async prepareNextRound() {
+        if (this.isMatchEnded) return;
         
-        document.getElementById('p1Img').src = this.sprites[p1Skin].rock;
-        document.getElementById('p2Img').src = this.sprites[p2Skin].rock;
+        document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
         
-        // Reset indicators
-        document.getElementById('p1Indicator').className = 'player-indicator';
-        document.getElementById('p2Indicator').className = 'player-indicator';
-        
-        // Enable controls
-        this.enableControls();
-        
-        // Start new timer
-        this.startTimer();
-        
-        // Show banner
-        this.showBanner('Choose your move!', 'info');
-    }
-
-    showMatchWinner(data) {
-        const winnerName = data.winnerName;
-        const isWinner = data.winner === this.myRole;
-        
-        const resultText = isWinner ? '🏆 You win the match! 🏆' : `${winnerName} wins the match!`;
-        this.showBanner(resultText, 'victory');
-        
-        if (isWinner) {
-            this.showConfetti();
-        } else {
-            this.showFire();
+        if (this.opponent) {
+            const flippedRock = await this.horizontallyFlipImage(this.sprites[this.opponent.skin].rock);
+            document.getElementById('p2Img').src = flippedRock;
         }
         
-        // Show match result overlay
-        setTimeout(() => {
-            this.showMatchResultOverlay(data);
-        }, 2000);
+        document.getElementById('p1Indicator').className = 'player-indicator active';
+        document.getElementById('p2Indicator').className = 'player-indicator';
+        
+        this.enableControls();
+        this.startTimer();
     }
 
-    showMatchResultOverlay(data) {
+    showMatchResultOverlay(data, winnerName) {
         const overlay = document.createElement('div');
         overlay.className = 'match-winner-overlay';
+        
+        // Get current displayed scores
+        const myScore = document.getElementById('p1Score').textContent;
+        const opponentScore = document.getElementById('p2Score').textContent;
+        
         overlay.innerHTML = `
             <div class="match-winner-content">
                 <h2>🏆 Match Winner! 🏆</h2>
-                <p><strong>${data.winnerName}</strong> wins the match!</p>
-                <p>Final Score: ${data.scores.p1} - ${data.scores.p2}</p>
+                <p><strong>${winnerName}</strong> wins the match!</p>
+                <p>Final Score: ${myScore} - ${opponentScore}</p>
                 <div style="margin-top: 30px;">
                     <button id="rematchBtn" class="control-btn reset" style="margin: 10px;">
                         <i class="fas fa-redo"></i> Rematch
@@ -603,7 +645,6 @@ class PvPGame {
         
         document.body.appendChild(overlay);
         
-        // Add event listeners to overlay buttons
         document.getElementById('rematchBtn').addEventListener('click', () => {
             this.socket.emit('reset', { room: this.roomId });
             overlay.remove();
@@ -615,13 +656,12 @@ class PvPGame {
         });
     }
 
-    resetGame() {
-        // Clear any existing timer
+    async resetGame() {
         if (this.gameState.timerInterval) {
             clearInterval(this.gameState.timerInterval);
+            this.gameState.timerInterval = null;
         }
         
-        // Reset game state
         this.gameState = {
             round: 1,
             timer: 10,
@@ -629,15 +669,21 @@ class PvPGame {
             isPlaying: false,
             myChoice: null,
             opponentChoice: null,
-            scores: { p1: 0, p2: 0 }
+            scores: { myScore: 0, opponentScore: 0 }
         };
         
-        // Reset UI
+        this.isMatchEnded = false;
+        
         document.getElementById('p1Score').textContent = '0';
         document.getElementById('p2Score').textContent = '0';
         document.getElementById('roundNumber').textContent = '1';
         
-        // Start new game
+        document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
+        if (this.opponent) {
+            const flippedRock = await this.horizontallyFlipImage(this.sprites[this.opponent.skin].rock);
+            document.getElementById('p2Img').src = flippedRock;
+        }
+        
         this.enableControls();
         this.startTimer();
         this.showBanner('New match started! Choose your move!', 'info');
@@ -648,7 +694,6 @@ class PvPGame {
         banner.textContent = text;
         banner.className = 'result-banner';
         
-        // Apply styles based on type
         switch (type) {
             case 'win':
                 banner.style.color = '#4caf50';
@@ -683,14 +728,12 @@ class PvPGame {
         const message = input.value.trim();
         
         if (message && this.myRole) {
-            // Send message to server
             this.socket.emit('chat', {
                 room: this.roomId,
                 sender: this.myName,
                 message: message
             });
             
-            // Clear input
             input.value = '';
         }
     }
@@ -699,7 +742,6 @@ class PvPGame {
         const chatMessages = document.getElementById('chatMessages');
         const messageDiv = document.createElement('div');
         
-        // Determine message class
         let messageClass = 'message';
         if (sender === 'System') {
             messageClass = 'message system';
@@ -709,7 +751,6 @@ class PvPGame {
             messageClass = 'message opponent';
         }
         
-        // Format timestamp
         const displayTime = timestamp || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
         messageDiv.className = messageClass;
@@ -722,8 +763,6 @@ class PvPGame {
         `;
         
         chatMessages.appendChild(messageDiv);
-        
-        // Scroll to bottom
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
@@ -732,24 +771,20 @@ class PvPGame {
         if (!canvas) return;
         
         const ctx = canvas.getContext('2d');
-        
-        // Set canvas size
         canvas.width = canvas.offsetWidth || 600;
         canvas.height = canvas.offsetHeight || 200;
         
-        // Clear any existing animation
         if (this.confettiAnimationId) {
             cancelAnimationFrame(this.confettiAnimationId);
         }
         
-        // Create confetti particles
         const particles = [];
         const colors = ['#ff3b3b', '#ffd23d', '#3be3ff', '#7effa1', '#ff6bff'];
         
         for (let i = 0; i < 80; i++) {
             particles.push({
                 x: Math.random() * canvas.width,
-                y: Math.random() * 50 - 100, // Start above canvas
+                y: Math.random() * 50 - 100,
                 size: Math.random() * 8 + 4,
                 speedX: (Math.random() - 0.5) * 6,
                 speedY: Math.random() * 5 + 3,
@@ -761,23 +796,20 @@ class PvPGame {
         }
         
         let startTime = Date.now();
-        const duration = 3000; // 3 seconds
+        const duration = 3000;
         
         const animate = () => {
             const elapsed = Date.now() - startTime;
-            
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             let activeParticles = 0;
             
             particles.forEach(p => {
-                // Update position
                 p.x += p.speedX;
                 p.y += p.speedY;
-                p.speedY += 0.1; // Gravity
+                p.speedY += 0.1;
                 p.rotation += p.rotationSpeed;
                 
-                // Draw particle
                 ctx.save();
                 ctx.translate(p.x, p.y);
                 ctx.rotate(p.rotation * Math.PI / 180);
@@ -794,23 +826,19 @@ class PvPGame {
                 
                 ctx.restore();
                 
-                // Count if particle is still on screen
                 if (p.y < canvas.height && elapsed < duration) {
                     activeParticles++;
                 }
             });
             
-            // Continue animation if there are active particles and time hasn't expired
             if (activeParticles > 0 && elapsed < duration) {
                 this.confettiAnimationId = requestAnimationFrame(animate);
             } else {
-                // Clean up
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 this.confettiAnimationId = null;
             }
         };
         
-        // Start animation
         animate();
     }
 
@@ -820,7 +848,6 @@ class PvPGame {
         
         fire.classList.add('active');
         
-        // Create fire particles
         const canvas = document.getElementById('confettiCanvas');
         if (!canvas) return;
         
@@ -828,7 +855,6 @@ class PvPGame {
         canvas.width = canvas.offsetWidth || 600;
         canvas.height = canvas.offsetHeight || 200;
         
-        // Clear any existing animation
         if (this.fireAnimationId) {
             cancelAnimationFrame(this.fireAnimationId);
         }
@@ -854,13 +880,11 @@ class PvPGame {
             let activeParticles = 0;
             
             particles.forEach(p => {
-                // Update position and life
                 p.x += p.speedX;
                 p.y += p.speedY;
-                p.speedX *= 0.98; // Slow down horizontally
+                p.speedX *= 0.98;
                 p.life -= p.decay;
                 
-                // Draw particle with opacity based on life
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
                 ctx.beginPath();
@@ -868,7 +892,6 @@ class PvPGame {
                 ctx.fill();
                 ctx.globalAlpha = 1.0;
                 
-                // Count if particle is still alive
                 if (p.life > 0 && p.y > 0) {
                     activeParticles++;
                 }
@@ -883,7 +906,6 @@ class PvPGame {
         
         animateFire();
         
-        // Remove fire effect after delay
         setTimeout(() => {
             fire.classList.remove('active');
             if (this.fireAnimationId) {
@@ -895,7 +917,6 @@ class PvPGame {
     }
 
     showDraw() {
-        // Simple shake animation for draw
         const hands = [document.getElementById('p1Img'), document.getElementById('p2Img')];
         hands.forEach(hand => {
             if (hand) {
