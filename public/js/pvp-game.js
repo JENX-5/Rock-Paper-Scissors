@@ -15,7 +15,8 @@ class PvPGame {
             isPlaying: false,
             myChoice: null,
             opponentChoice: null,
-            scores: { myScore: 0, opponentScore: 0 }
+            scores: { myScore: 0, opponentScore: 0 },
+            bothChosen: false
         };
         
         // Socket.io connection
@@ -295,32 +296,29 @@ class PvPGame {
         this.socket.on('players', async (data) => {
             console.log('Players updated:', data);
             await this.updatePlayers(data);
-            // Store server scores for reference
             this.serverScores = data.scores;
         });
 
         this.socket.on('choiceMade', async (data) => {
-            console.log('Opponent made choice:', data);
+            console.log('=== CHOICE MADE EVENT ===');
+            console.log('Data:', data);
+            console.log('My role:', this.myRole);
             
             if (data.player !== this.myRole) {
                 this.gameState.opponentChoice = data.choice;
-                
-                const opponentSkin = this.opponent?.skin || 0;
-                
-                if (this.sprites[opponentSkin]) {
-                    const opponentSprite = this.sprites[opponentSkin][data.choice];
-                    const flippedSprite = await this.horizontallyFlipImage(opponentSprite);
-                    document.getElementById('p2Img').src = flippedSprite;
-                }
-                
                 document.getElementById('p2Indicator').className = 'player-indicator thinking';
+                this.showBanner('Opponent is ready!', 'info');
             }
         });
 
-        this.socket.on('result', (data) => {
-            console.log('Round result:', data);
+        this.socket.on('result',  (data) => {  // Make this async
+            console.log('=== RESULT EVENT RECEIVED ===');
+            console.log('Result data:', JSON.stringify(data, null, 2));
+            console.log('My socket ID:', this.socket.id);
+            console.log('My role:', this.myRole);
             this.showRoundResult(data);
         });
+
 
         this.socket.on('matchWinner', (data) => {
             console.log('Match winner:', data);
@@ -333,7 +331,6 @@ class PvPGame {
             
             this.disableControls();
             
-            // FIX: Correctly display who won
             const isWinner = data.winner === this.myRole;
             const winnerName = isWinner ? this.myName : (this.opponent?.name || 'Opponent');
             const resultText = isWinner ? '🏆 You win the match! 🏆' : `${winnerName} wins the match!`;
@@ -346,7 +343,6 @@ class PvPGame {
                 this.showFire();
             }
             
-            // Show match result overlay with correct scores
             setTimeout(() => {
                 this.showMatchResultOverlay(data, winnerName);
             }, 2000);
@@ -378,52 +374,59 @@ class PvPGame {
     }
 
     async updatePlayers(data) {
-        // FIXED: Always show my info on left, opponent on right regardless of server role
+        console.log('updatePlayers called, isMatchEnded:', this.isMatchEnded, 'isPlaying:', this.gameState.isPlaying);
+        
         if (data.p1 && data.p1.id === this.socket.id) {
-            // I am Player 1
             this.opponent = data.p2;
             
-            // Left panel (me)
             document.getElementById('p1Name').textContent = data.p1.name;
             document.getElementById('p1Status').textContent = 'You';
             document.getElementById('p1Score').textContent = data.scores.p1;
             
-            // Right panel (opponent or waiting)
             if (data.p2) {
                 document.getElementById('p2Name').textContent = data.p2.name;
                 document.getElementById('p2Status').textContent = 'Opponent';
                 document.getElementById('p2Score').textContent = data.scores.p2;
-                const flippedRock = await this.horizontallyFlipImage(this.sprites[data.p2.skin].rock);
-                document.getElementById('p2Img').src = flippedRock;
+                
+                // Reset to rock image if we're not in a round
+                if (!this.gameState.isPlaying && this.gameState.myChoice === null) {
+                    const flippedRock = await this.horizontallyFlipImage(this.sprites[data.p2.skin].rock);
+                    document.getElementById('p2Img').src = flippedRock;
+                }
             } else {
                 document.getElementById('p2Name').textContent = 'Waiting...';
                 document.getElementById('p2Status').textContent = 'Not connected';
                 document.getElementById('p2Score').textContent = '0';
+                const flippedRock = await this.horizontallyFlipImage(this.sprites[(this.mySkin + 1) % 4].rock);
+                document.getElementById('p2Img').src = flippedRock;
             }
             
         } else if (data.p2 && data.p2.id === this.socket.id) {
-            // I am Player 2
             this.opponent = data.p1;
             
-            // Left panel (me)
             document.getElementById('p1Name').textContent = data.p2.name;
             document.getElementById('p1Status').textContent = 'You';
-            document.getElementById('p1Score').textContent = data.scores.p2; // My score is p2 score
+            document.getElementById('p1Score').textContent = data.scores.p2;
             
-            // Right panel (opponent)
             if (data.p1) {
                 document.getElementById('p2Name').textContent = data.p1.name;
                 document.getElementById('p2Status').textContent = 'Opponent';
-                document.getElementById('p2Score').textContent = data.scores.p1; // Opponent score is p1 score
-                const flippedRock = await this.horizontallyFlipImage(this.sprites[data.p1.skin].rock);
-                document.getElementById('p2Img').src = flippedRock;
+                document.getElementById('p2Score').textContent = data.scores.p1;
+                
+                // Reset to rock image if we're not in a round
+                if (!this.gameState.isPlaying && this.gameState.myChoice === null) {
+                    const flippedRock = await this.horizontallyFlipImage(this.sprites[data.p1.skin].rock);
+                    document.getElementById('p2Img').src = flippedRock;
+                }
             } else {
                 document.getElementById('p2Name').textContent = 'Waiting...';
                 document.getElementById('p2Status').textContent = 'Not connected';
                 document.getElementById('p2Score').textContent = '0';
+                const flippedRock = await this.horizontallyFlipImage(this.sprites[(this.mySkin + 1) % 4].rock);
+                document.getElementById('p2Img').src = flippedRock;
             }
         } else {
-            // Spectator view (shouldn't happen)
+            // Spectator view
             if (data.p1) {
                 document.getElementById('p1Name').textContent = data.p1.name;
                 document.getElementById('p1Status').textContent = 'Player 1';
@@ -438,7 +441,6 @@ class PvPGame {
 
         document.getElementById('roundNumber').textContent = data.round;
 
-        // Check if game can start
         if (data.p1 && data.p2 && !this.gameState.isPlaying && !this.isMatchEnded) {
             this.enableControls();
             this.startTimer();
@@ -534,7 +536,12 @@ class PvPGame {
             this.gameState.timerInterval = null;
         }
         
+        // Show my move immediately
         document.getElementById('p1Img').src = this.sprites[this.mySkin][move];
+        
+        // DO NOT reset opponent to rock here - keep whatever they showed
+        // The opponent's image will update in showRoundResult when results come
+        
         document.getElementById('p2Indicator').className = 'player-indicator thinking';
         
         this.showBanner('Waiting for opponent...', 'info');
@@ -546,27 +553,141 @@ class PvPGame {
         });
     }
 
+
     async showRoundResult(data) {
-        console.log('Showing round result:', data);
+        console.log('=== SHOW ROUND RESULT START ===');
+        console.log('Full result data:', JSON.stringify(data, null, 2));
+        console.log('My role:', this.myRole);
+        console.log('Data players:', data.players);
+        
+        // Store the result data for debugging
+        window.lastResultData = data;
+        
+        // Cancel any pending prepareNextRound timeouts
+        if (this.prepareNextRoundTimeout) {
+            clearTimeout(this.prepareNextRoundTimeout);
+            this.prepareNextRoundTimeout = null;
+        }
         
         this.gameState.isPlaying = false;
         this.gameState.myChoice = null;
         this.gameState.opponentChoice = null;
         
-        // FIXED: Update scores based on which player I am
-        if (data.players.p1 && data.players.p1.id === this.socket.id) {
-            // I am Player 1
-            document.getElementById('p1Score').textContent = data.scores.p1;
-            document.getElementById('p2Score').textContent = data.scores.p2;
-        } else if (data.players.p2 && data.players.p2.id === this.socket.id) {
-            // I am Player 2
-            document.getElementById('p1Score').textContent = data.scores.p2;
-            document.getElementById('p2Score').textContent = data.scores.p1;
+        // First, determine moves and skins
+        let myMove = null;
+        let opponentMove = null;
+        let opponentSkin = 0;
+        
+        // Determine moves based on role
+        if (this.myRole === 'p1') {
+            myMove = data.p1;
+            opponentMove = data.p2;
+            opponentSkin = (data.players && data.players.p2) ? data.players.p2.skin : 0;
+            console.log('P1 mode - myMove:', myMove, 'opponentMove:', opponentMove, 'opponentSkin:', opponentSkin);
+        } else if (this.myRole === 'p2') {
+            myMove = data.p2;
+            opponentMove = data.p1;
+            opponentSkin = (data.players && data.players.p1) ? data.players.p1.skin : 0;
+            console.log('P2 mode - myMove:', myMove, 'opponentMove:', opponentMove, 'opponentSkin:', opponentSkin);
+        } else {
+            console.error('Unknown role:', this.myRole);
+            return;
         }
         
-        document.getElementById('roundNumber').textContent = data.round;
-        this.gameState.round = data.round;
+        console.log('My move:', myMove, 'Opponent move:', opponentMove, 'Opponent skin:', opponentSkin);
         
+        // DEBUG: Check what's actually in the data
+        console.log('DEBUG - data.p1:', data.p1, 'data.p2:', data.p2);
+        console.log('DEBUG - this.sprites available:', !!this.sprites);
+        console.log('DEBUG - this.sprites[opponentSkin] available:', !!(this.sprites && this.sprites[opponentSkin]));
+        
+        // Update my image FIRST
+        if (myMove && this.sprites && this.sprites[this.mySkin] && this.sprites[this.mySkin][myMove]) {
+            console.log('Updating my image to:', myMove);
+            const myImageUrl = this.sprites[this.mySkin][myMove];
+            document.getElementById('p1Img').src = myImageUrl;
+            console.log('My image URL:', myImageUrl.substring(0, 100) + '...');
+        } else {
+            console.error('Cannot update my image - missing data:', {
+                myMove, hasSprites: !!this.sprites, 
+                hasMySkin: !!(this.sprites && this.sprites[this.mySkin]),
+                hasMove: !!(this.sprites && this.sprites[this.mySkin] && this.sprites[this.mySkin][myMove])
+            });
+        }
+        
+        // Update opponent image with error handling
+        if (opponentMove && this.sprites && this.sprites[opponentSkin] && this.sprites[opponentSkin][opponentMove]) {
+            console.log('Updating opponent image to:', opponentMove, 'with skin:', opponentSkin);
+            
+            try {
+                const spriteUrl = this.sprites[opponentSkin][opponentMove];
+                console.log('Opponent sprite URL:', spriteUrl.substring(0, 100) + '...');
+                
+                // Use setTimeout to ensure DOM updates happen
+                setTimeout(async () => {
+                    try {
+                        const flipped = await this.horizontallyFlipImage(spriteUrl);
+                        document.getElementById('p2Img').src = flipped;
+                        console.log('Opponent image updated successfully at:', new Date().toISOString());
+                        
+                        // Verify the image loaded
+                        const img = new Image();
+                        img.onload = () => console.log('Opponent image verified loaded');
+                        img.onerror = () => console.error('Opponent image failed to load');
+                        img.src = flipped;
+                        
+                    } catch (flipError) {
+                        console.error('Error flipping opponent image:', flipError);
+                        document.getElementById('p2Img').src = spriteUrl;
+                    }
+                }, 0);
+                
+            } catch (error) {
+                console.error('Error getting opponent sprite:', error);
+                // Try fallback
+                const fallbackUrl = this.sprites[0] ? this.sprites[0][opponentMove] : null;
+                if (fallbackUrl) {
+                    document.getElementById('p2Img').src = fallbackUrl;
+                }
+            }
+        } else {
+            console.error('Cannot update opponent image - missing data:', {
+                opponentMove, opponentSkin, 
+                hasSprites: !!this.sprites, 
+                hasOpponentSkin: !!(this.sprites && this.sprites[opponentSkin]),
+                hasOpponentMove: !!(this.sprites && this.sprites[opponentSkin] && this.sprites[opponentSkin][opponentMove])
+            });
+            
+            // Try to use opponent from this.opponent as fallback
+            if (this.opponent && this.opponent.skin !== undefined && this.sprites) {
+                console.log('Trying fallback using this.opponent skin:', this.opponent.skin);
+                const fallbackSprite = this.sprites[this.opponent.skin] ? 
+                    this.sprites[this.opponent.skin][opponentMove || 'rock'] : 
+                    this.sprites[0].rock;
+                
+                try {
+                    const flipped = await this.horizontallyFlipImage(fallbackSprite);
+                    document.getElementById('p2Img').src = flipped;
+                } catch (e) {
+                    document.getElementById('p2Img').src = fallbackSprite;
+                }
+            }
+        }
+        
+        // Update scores
+        console.log('Updating scores - data.scores:', data.scores);
+        if (data.players && data.players.p1 && data.players.p1.id === this.socket.id) {
+            document.getElementById('p1Score').textContent = data.scores.p1 || 0;
+            document.getElementById('p2Score').textContent = data.scores.p2 || 0;
+        } else if (data.players && data.players.p2 && data.players.p2.id === this.socket.id) {
+            document.getElementById('p1Score').textContent = data.scores.p2 || 0;
+            document.getElementById('p2Score').textContent = data.scores.p1 || 0;
+        }
+        
+        document.getElementById('roundNumber').textContent = data.round || 1;
+        this.gameState.round = data.round || 1;
+        
+        // Show result
         let resultText = '';
         let resultType = 'draw';
         
@@ -575,41 +696,69 @@ class PvPGame {
             resultType = 'draw';
             this.showDraw();
         } else {
-            const winnerName = data.players[data.winner].name;
-            const winnerMove = data[data.winner];
-            const loserMove = data[data.winner === 'p1' ? 'p2' : 'p1'];
-            
-            // Check if I won
-            const iWon = data.players[data.winner].id === this.socket.id;
+            const iWon = data.winner === this.myRole;
             resultType = iWon ? 'win' : 'lose';
             
             if (iWon) {
-                resultText = `You win! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
-                this.showConfetti();
+                resultText = `You win! ${(myMove || '').toUpperCase()} beats ${(opponentMove || '').toUpperCase()}`;
+                setTimeout(() => this.showConfetti(), 500);
             } else {
-                resultText = `You lose! ${winnerMove.toUpperCase()} beats ${loserMove.toUpperCase()}`;
-                this.showFire();
+                resultText = `You lose! ${(opponentMove || '').toUpperCase()} beats ${(myMove || '').toUpperCase()}`;
+                setTimeout(() => this.showFire(), 500);
             }
         }
         
-        this.showBanner(resultText, resultType);
+        setTimeout(() => {
+            this.showBanner(resultText, resultType);
+        }, 100);
         
-        // Reset for next round if match not ended
-        if (data.scores.p1 < this.FIRST_TO && data.scores.p2 < this.FIRST_TO) {
-            setTimeout(async () => {
-                await this.prepareNextRound();
-            }, 2000);
+        console.log('=== SHOW ROUND RESULT END ===');
+        
+        // Reset for next round - DELAY this to ensure images are seen
+        if ((data.scores.p1 < this.FIRST_TO && data.scores.p2 < this.FIRST_TO) || 
+            (!data.scores.p1 && !data.scores.p2)) {
+            
+            console.log('Setting up prepareNextRound timeout for 2500ms');
+            this.prepareNextRoundTimeout = setTimeout(() => {
+                console.log('prepareNextRound called at:', new Date().toISOString());
+                this.prepareNextRound();
+            }, 2500); // Increased to 2.5 seconds
         }
     }
-
     async prepareNextRound() {
         if (this.isMatchEnded) return;
         
+        console.log('=== PREPARE NEXT ROUND START ===');
+        console.log('Current P2 image src:', document.getElementById('p2Img').src);
+        
+        // Clear any pending timeouts
+        if (this.prepareNextRoundTimeout) {
+            clearTimeout(this.prepareNextRoundTimeout);
+            this.prepareNextRoundTimeout = null;
+        }
+        
+        // Wait a bit before resetting to rock to ensure result was seen
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        console.log('Resetting images to rock...');
+        
+        // Reset both players to rock images for next round
         document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
         
-        if (this.opponent) {
-            const flippedRock = await this.horizontallyFlipImage(this.sprites[this.opponent.skin].rock);
+        if (this.opponent && this.opponent.skin !== undefined) {
+            try {
+                const flippedRock = await this.horizontallyFlipImage(this.sprites[this.opponent.skin].rock);
+                document.getElementById('p2Img').src = flippedRock;
+                console.log('P2 image reset to rock with opponent skin:', this.opponent.skin);
+            } catch (error) {
+                console.error('Error resetting P2 image:', error);
+                document.getElementById('p2Img').src = this.sprites[0].rock;
+            }
+        } else {
+            // Fallback if opponent info not available
+            const flippedRock = await this.horizontallyFlipImage(this.sprites[(this.mySkin + 1) % 4].rock);
             document.getElementById('p2Img').src = flippedRock;
+            console.log('P2 image reset to rock with fallback skin');
         }
         
         document.getElementById('p1Indicator').className = 'player-indicator active';
@@ -617,13 +766,14 @@ class PvPGame {
         
         this.enableControls();
         this.startTimer();
+        
+        console.log('=== PREPARE NEXT ROUND END ===');
     }
 
     showMatchResultOverlay(data, winnerName) {
         const overlay = document.createElement('div');
         overlay.className = 'match-winner-overlay';
         
-        // Get current displayed scores
         const myScore = document.getElementById('p1Score').textContent;
         const opponentScore = document.getElementById('p2Score').textContent;
         
@@ -669,7 +819,8 @@ class PvPGame {
             isPlaying: false,
             myChoice: null,
             opponentChoice: null,
-            scores: { myScore: 0, opponentScore: 0 }
+            scores: { myScore: 0, opponentScore: 0 },
+            bothChosen: false
         };
         
         this.isMatchEnded = false;
@@ -678,6 +829,7 @@ class PvPGame {
         document.getElementById('p2Score').textContent = '0';
         document.getElementById('roundNumber').textContent = '1';
         
+        // Reset both images to rock
         document.getElementById('p1Img').src = this.sprites[this.mySkin].rock;
         if (this.opponent) {
             const flippedRock = await this.horizontallyFlipImage(this.sprites[this.opponent.skin].rock);
